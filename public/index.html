@@ -1,0 +1,750 @@
+<!doctype html>
+<html lang="en" class="h-full">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BloodBank</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            blood: {
+              50: '#fef2f2', 100: '#fee2e2', 200: '#fecaca', 300: '#fca5a5',
+              400: '#f87171', 500: '#ef4444', 600: '#dc2626', 700: '#b91c1c',
+              800: '#991b1b', 900: '#7f1d1d'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+
+<body class="h-full bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100">
+  <div id="loader" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/40 backdrop-blur-sm">
+    <div class="rounded-2xl bg-white dark:bg-slate-900 p-6 shadow-2xl text-center min-w-[240px]">
+      <div class="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-blood-200 border-t-blood-600"></div>
+      <p class="mt-4 font-semibold">Loading...</p>
+    </div>
+  </div>
+
+  <div id="toast" class="fixed bottom-5 right-5 z-[101] translate-y-24 opacity-0 transition-all duration-300">
+    <div
+      class="rounded-2xl bg-white dark:bg-slate-900 px-4 py-3 shadow-xl border border-slate-200 dark:border-slate-800 flex items-center gap-3 max-w-sm">
+      <span id="toast-icon">🔔</span>
+      <div id="toast-message" class="text-sm font-medium">Hello</div>
+    </div>
+  </div>
+
+  <nav
+    class="sticky top-0 z-50 border-b border-slate-200/80 bg-white/90 backdrop-blur dark:border-slate-800 dark:bg-slate-950/90">
+    <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
+      <button onclick="showPage('home')" class="flex items-center gap-3 font-extrabold text-xl">
+        <div
+          class="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-blood-500 to-blood-700 text-white">
+          🩸</div>
+        <span class="tracking-tight">Blood<span class="text-blood-600">Bank</span></span>
+      </button>
+      <div class="hidden md:flex items-center gap-6 text-sm font-semibold">
+        <button onclick="showPage('home')">Home</button>
+        <button onclick="showPage('search')">Find Blood</button>
+        <button onclick="showPage('nearby')">Nearby Donors</button>
+        <button onclick="showPage('requests')">Request History</button>
+        <button onclick="showPage('profile')">Profile</button>
+        <button data-admin-nav onclick="showPage('admin')" class="hidden">Admin Portal</button>
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="toggleTheme()" class="rounded-2xl border px-3.5 py-2.5 text-sm font-semibold">🌙</button>
+        <button data-guest-only onclick="showPage('auth')"
+          class="rounded-xl border px-4 py-2 text-sm font-semibold">Login</button>
+        <button data-guest-only onclick="openRegister()"
+          class="rounded-xl bg-blood-600 px-4 py-2 text-sm font-semibold text-white">Register</button>
+
+        <div data-auth-only class="hidden relative">
+          <button id="nav-user-trigger" type="button" onclick="toggleUserMenu()"
+            class="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-2 py-1.5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+            <img id="nav-avatar" src="https://ui-avatars.com/api/?name=User&background=dc2626&color=fff"
+              class="h-10 w-10 rounded-full object-cover" alt="Profile">
+            <div class="hidden sm:block text-left">
+              <div id="nav-user-name" class="text-sm font-bold leading-tight">My Account</div>
+              <div class="text-xs text-slate-500">Account</div>
+            </div>
+          </button>
+          <div id="nav-user-menu"
+            class="hidden absolute right-0 mt-2 w-56 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-700 dark:bg-slate-900">
+            <button onclick="showPage('profile'); closeUserMenu()" class="menu-item">My Profile</button>
+            <button onclick="showPage('requests'); closeUserMenu()" class="menu-item">My Requests</button>
+            <button onclick="showPage('nearby'); closeUserMenu()" class="menu-item">Nearby Donors</button>
+            <button onclick="logout(); closeUserMenu()" class="menu-item text-red-600">Logout</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <main class="min-h-[calc(100vh-260px)]">
+    <section id="page-home" class="page active">
+      <div class="mx-auto max-w-7xl px-4 py-10 lg:py-16">
+        <div class="grid gap-8 lg:grid-cols-2 lg:items-center hero-grid">
+          <div>
+            <span
+              class="inline-flex rounded-full bg-blood-100 px-4 py-1 text-sm font-semibold text-blood-700 dark:bg-blood-900/30 dark:text-blood-300">
+              Find blood fast and connect with nearby donors
+            </span>
+
+            <h1 class="mt-4 text-4xl font-black leading-tight lg:text-6xl">
+              Find blood donors instantly
+            </h1>
+
+            <p
+              class="mt-4 text-lg text-slate-60.0 dark:text-slate-300">
+              Check availability, connect with donors, and manage requests easily.
+            </p>
+
+            <div class="mt-6 flex flex-wrap gap-3">
+              <button onclick="showPage('search')" class="rounded-2xl bg-blood-600 px-6 py-3 font-bold text-white">Find
+                Blood</button>
+              <button onclick="showPage('nearby')" class="rounded-2xl border px-6 py-3 font-bold">Nearby Donors</button>
+              <button onclick="openRegister()" class="rounded-2xl border px-6 py-3 font-bold">Become Donor</button>
+            </div>
+
+            <div class="mt-8 grid grid-cols-2 gap-4 md:grid-cols-4">
+              <button
+                class="feature-card rounded-2xl border bg-white p-5 text-left shadow-sm transition hover:shadow-lg dark:bg-slate-900"
+                data-action="search">
+                <div class="text-3xl">🧪</div>
+                <div class="mt-2 font-bold">Real Inventory</div>
+                <p class="text-sm text-slate-500">Search real stored units</p>
+              </button>
+
+              <button
+                class="feature-card rounded-2xl border bg-white p-5 text-left shadow-sm transition hover:shadow-lg dark:bg-slate-900"
+                data-action="nearby">
+                <div class="text-3xl">📍</div>
+                <div class="mt-2 font-bold">Nearby Donors</div>
+                <p class="text-sm text-slate-500">Distance-based donor results</p>
+              </button>
+
+              <button
+                class="feature-card rounded-2xl border bg-white p-5 text-left shadow-sm transition hover:shadow-lg dark:bg-slate-900"
+                data-action="requests">
+                <div class="text-3xl">📝</div>
+                <div class="mt-2 font-bold">Track Requests</div>
+                <p class="text-sm text-slate-500">Pending to completed flow</p>
+              </button>
+
+              <button
+                class="feature-card rounded-2xl border bg-white p-5 text-left shadow-sm transition hover:shadow-lg dark:bg-slate-900"
+                data-action="admin">
+                <div class="text-3xl">🛡️</div>
+                <div class="mt-2 font-bold">Admin Control</div>
+                <p class="text-sm text-slate-500">Manage users and blood units</p>
+              </button>
+            </div>
+          </div>
+
+          <div class="grid gap-4 md:grid-cols-2">
+            <div class="rounded-3xl bg-white p-6 shadow-xl dark:bg-slate-900">
+              <div class="flex items-center justify-between">
+                <div class="text-sm font-semibold text-blood-600">Emergency Alerts</div>
+                <button onclick="showPage('requests')" class="text-xs font-semibold text-blood-600 hover:underline">View
+                  all</button>
+              </div>
+              <div id="home-alerts" class="mt-3 space-y-3"></div>
+            </div>
+
+            <div class="rounded-3xl bg-white p-6 shadow-xl dark:bg-slate-900">
+              <div class="text-sm font-semibold text-blood-600">Quick Stats</div>
+              <div class="mt-4 space-y-4">
+                <button onclick="showPage('nearby')"
+                  class="block w-full rounded-2xl bg-slate-50 dark:bg-slate-800 p-4 text-left transition hover:shadow">
+                  <div class="text-sm">Active Donors</div>
+                  <div id="stat-donors" class="text-3xl font-black">0</div>
+                </button>
+
+                <button onclick="showPage('requests')"
+                  class="block w-full rounded-2xl bg-slate-50 dark:bg-slate-800 p-4 text-left transition hover:shadow">
+                  <div class="text-sm">Pending Requests</div>
+                  <div id="stat-pending" class="text-3xl font-black">0</div>
+                </button>
+
+                <button onclick="showPage('search')"
+                  class="block w-full rounded-2xl bg-slate-50 dark:bg-slate-800 p-4 text-left transition hover:shadow">
+                  <div class="text-sm">Inventory Units</div>
+                  <div id="stat-units" class="text-3xl font-black">0</div>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="page-auth" class="page">
+      <div class="mx-auto max-w-lg px-4 py-8">
+        <div class="rounded-3xl bg-white p-6 shadow-xl dark:bg-slate-900">
+          <div class="mb-6 flex rounded-2xl bg-slate-100 p-1 dark:bg-slate-800">
+            <button id="login-tab" onclick="switchAuthTab('login')"
+              class="flex-1 rounded-2xl bg-white px-4 py-3 font-bold text-blood-600 shadow dark:bg-slate-900">Login</button>
+            <button id="register-tab" onclick="switchAuthTab('register')"
+              class="flex-1 rounded-2xl px-4 py-3 font-bold">Register</button>
+          </div>
+
+          <form id="login-form" class="space-y-4" onsubmit="handleLogin(event)">
+            <input id="login-email" class="w-full rounded-2xl border px-4 py-2.5" type="email" placeholder="Email"
+              required />
+            <input id="login-password" class="w-full rounded-2xl border px-4 py-2.5" type="password"
+              placeholder="Password" required />
+            <button class="w-full rounded-2xl bg-blood-600 px-4 py-2.5 font-bold text-white">Login</button>
+            <button type="button" onclick="showPage('forgot-password')"
+              class="w-full text-sm font-semibold text-blood-600">Forgot password?</button>
+          </form>
+
+          <form id="register-form" class="hidden space-y-4" onsubmit="handleRegister(event)">
+            <div class="grid gap-4 md:grid-cols-2">
+              <input id="reg-fname" class="w-full rounded-2xl border px-4 py-2.5" placeholder="First name" required />
+              <input id="reg-lname" class="w-full rounded-2xl border px-4 py-2.5" placeholder="Last name" required />
+            </div>
+
+            <input id="reg-email" class="w-full rounded-2xl border px-4 py-2.5" type="email" placeholder="Email"
+              required />
+            <input id="reg-phone" name="phone" autocomplete="tel" inputmode="tel" class="w-full rounded-2xl border px-4 py-2.5" placeholder="Phone" required />
+
+            <div class="grid gap-4 md:grid-cols-2">
+              <select id="reg-blood" class="w-full rounded-2xl border px-4 py-2.5">
+                <option value="">Blood group</option>
+                <option>A+</option>
+                <option>A-</option>
+                <option>B+</option>
+                <option>B-</option>
+                <option>AB+</option>
+                <option>AB-</option>
+                <option>O+</option>
+                <option>O-</option>
+              </select>
+
+              <select id="reg-role" class="w-full rounded-2xl border px-4 py-2.5">
+                <option value="donor">Donor</option>
+                <option value="acceptor">Acceptor</option>
+              </select>
+            </div>
+
+            <!-- <div class="grid gap-4 md:grid-cols-3">
+
+
+              <button type="button" onclick="captureLocation()" class="rounded-2xl border px-4 py-2.5 font-bold">
+                Use live location
+              </button>
+            </div> -->
+
+            <div class="grid gap-4 md:grid-cols-3">
+              <select id="reg-state" name="state" class="select-field w-full rounded-2xl border px-4 py-3" required>
+                <option value="">Select state</option>
+              </select>
+
+              <select id="reg-city" name="city" class="select-field w-full rounded-2xl border px-4 py-3" required disabled>
+                <option value="">Select state first</option>
+              </select>
+
+              <button type="button" onclick="captureLocation()" class="rounded-2xl border px-4 py-2.5 font-bold">
+                Use live location
+              </button>
+            </div>
+            <textarea id="reg-address" class="w-full rounded-2xl border px-4 py-2.5" placeholder="Address"></textarea>
+            <input id="reg-password" class="w-full rounded-2xl border px-4 py-2.5" type="password"
+              placeholder="Password" required />
+            <button class="w-full rounded-2xl bg-blood-600 px-4 py-2.5 font-bold text-white">Create Account</button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <section id="page-forgot-password" class="page">
+      <div class="mx-auto max-w-xl px-4 py-10">
+        <div class="rounded-3xl bg-white p-8 shadow-xl dark:bg-slate-900 space-y-4">
+          <h2 class="text-2xl font-black">Forgot Password</h2>
+          <input id="forgot-email" class="w-full rounded-2xl border px-4 py-2.5" type="email" placeholder="Email" />
+          <button onclick="startForgotPassword()"
+            class="rounded-2xl bg-blood-600 px-4 py-3 font-bold text-white">Generate Reset Token</button>
+          <input id="reset-token" class="w-full rounded-2xl border px-4 py-2.5" placeholder="Reset token" />
+          <input id="reset-password" class="w-full rounded-2xl border px-4 py-3" type="password"
+            placeholder="New password" />
+          <button onclick="resetPassword()" class="rounded-2xl border px-4 py-2.5 font-bold">Reset Password</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="page-search" class="page">
+      <div class="mx-auto max-w-7xl px-4 py-10">
+        <div class="rounded-3xl bg-white p-6 shadow-xl dark:bg-slate-900">
+          <div class="grid gap-4 md:grid-cols-5">
+            <select id="search-blood-group" class="rounded-2xl border px-4 py-3">
+              <option value="">All Blood Groups</option>
+              <option>A+</option>
+              <option>A-</option>
+              <option>B+</option>
+              <option>B-</option>
+              <option>AB+</option>
+              <option>AB-</option>
+              <option>O+</option>
+              <option>O-</option>
+            </select>
+
+            <select id="search-location" class="select-field rounded-2xl border px-4 py-3"></select>
+
+            <select id="search-urgency" class="rounded-2xl border px-4 py-3">
+              <option value="">Any Urgency</option>
+              <option value="normal">Normal</option>
+              <option value="urgent">Urgent</option>
+              <option value="emergency">Emergency</option>
+            </select>
+
+            <button onclick="useMyLocationAndSearch()" class="rounded-2xl border px-4 py-2.5 font-bold">Use My
+              Location</button>
+            <button onclick="filterBloodResults()"
+              class="rounded-2xl bg-blood-600 px-4 py-3 font-bold text-white">Search</button>
+          </div>
+        </div>
+
+        <div class="mt-6 flex items-center justify-between">
+          <h2 class="text-2xl font-black">Available Blood Units</h2>
+          <span id="results-count" class="text-sm font-semibold">0 results</span>
+        </div>
+
+        <div id="blood-results" class="mt-6 grid gap-6 md:grid-cols-2 xl:grid-cols-3"></div>
+
+        <div class="mt-8 rounded-3xl bg-white p-4 shadow-xl dark:bg-slate-900">
+          <h3 class="font-black">Map View</h3>
+          <div id="inventory-map" class="mt-3 h-[380px] rounded-2xl overflow-hidden"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="page-nearby" class="page">
+      <div class="mx-auto max-w-7xl px-4 py-10">
+        <div class="rounded-3xl bg-white p-6 shadow-xl dark:bg-slate-900">
+          <div class="grid gap-4 md:grid-cols-4">
+            <select id="nearby-blood-group" class="rounded-2xl border px-4 py-3">
+              <option value="A+">A+</option>
+              <option>A-</option>
+              <option>B+</option>
+              <option>B-</option>
+              <option>AB+</option>
+              <option>AB-</option>
+              <option>O+</option>
+              <option>O-</option>
+            </select>
+            <input id="nearby-radius" class="rounded-2xl border px-4 py-3" type="number" value="100"
+              placeholder="Radius km" />
+            <button onclick="captureLocation(true)" class="rounded-2xl border px-4 py-3 font-bold">Capture Current
+              Location</button>
+            <button onclick="searchNearbyDonors()" class="rounded-2xl bg-blood-600 px-4 py-3 font-bold text-white">Find
+              Nearby Donors</button>
+          </div>
+        </div>
+        <div id="nearby-results" class="mt-6 grid gap-6 md:grid-cols-2 xl:grid-cols-3"></div>
+      </div>
+    </section>
+
+    <section id="page-requests" class="page">
+      <div class="mx-auto max-w-7xl px-4 py-10">
+        <div class="rounded-3xl bg-white p-6 shadow-xl dark:bg-slate-900">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <h2 class="text-2xl font-black">Request History</h2>
+            <button onclick="loadMyRequests()" class="rounded-2xl border px-4 py-3 font-bold">Refresh</button>
+          </div>
+          <div id="request-list" class="mt-6 space-y-4"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="page-donor-dashboard" class="page">
+      <div class="mx-auto max-w-7xl px-4 py-10">
+        <div class="grid gap-6 lg:grid-cols-4">
+          <div class="lg:col-span-3 space-y-6">
+            <div class="rounded-3xl bg-white p-6 shadow-xl dark:bg-slate-900">
+              <div class="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 id="donor-name" class="text-3xl font-black">Donor Dashboard</h2>
+                  <p id="donor-subtitle" class="text-slate-500">Track donations, availability and alerts</p>
+                </div>
+                <label class="flex items-center gap-2 rounded-2xl border px-4 py-3 font-semibold">
+                  <input id="availability-toggle" type="checkbox" onchange="toggleAvailability(this.checked)" />
+                  Available for donation
+                </label>
+              </div>
+              <div class="mt-6 grid gap-4 md:grid-cols-4">
+                <div class="rounded-2xl bg-slate-50 p-4 dark:bg-slate-800">
+                  <div class="text-sm">Total donations</div>
+                  <div id="don-stat-1" class="text-3xl font-black">0</div>
+                </div>
+                <div class="rounded-2xl bg-slate-50 p-4 dark:bg-slate-800">
+                  <div class="text-sm">Lives saved</div>
+                  <div id="don-stat-2" class="text-3xl font-black">0</div>
+                </div>
+                <div class="rounded-2xl bg-slate-50 p-4 dark:bg-slate-800">
+                  <div class="text-sm">Last donation</div>
+                  <div id="don-stat-3" class="text-xl font-black">0ml</div>
+                </div>
+                <div class="rounded-2xl bg-slate-50 p-4 dark:bg-slate-800">
+                  <div class="text-sm">Eligibility</div>
+                  <div id="don-stat-4" class="text-xl font-black">0 days</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="rounded-3xl bg-white p-6 shadow-xl dark:bg-slate-900">
+              <div class="flex items-center justify-between">
+                <h3 class="text-xl font-black">Donation History</h3>
+                <button onclick="downloadMyReceiptPdf()" class="rounded-2xl border px-4 py-3 font-bold">Download latest
+                  receipt PDF</button>
+              </div>
+              <div id="donation-history" class="mt-4 space-y-3"></div>
+            </div>
+
+            <div class="rounded-3xl bg-white p-6 shadow-xl dark:bg-slate-900">
+              <h3 class="text-xl font-black">Notifications</h3>
+              <div id="notification-list" class="mt-4 space-y-3"></div>
+            </div>
+          </div>
+
+          <div class="space-y-6">
+            <div class="rounded-3xl bg-white p-6 shadow-xl dark:bg-slate-900">
+              <h3 class="font-black">Email Verification</h3>
+              <div class="mt-3 space-y-3">
+                <button onclick="sendEmailVerification()" class="w-full rounded-2xl border px-4 py-3 font-bold">Send
+                  token</button>
+                <input id="email-token" class="w-full rounded-2xl border px-4 py-3" placeholder="Email token" />
+                <button onclick="verifyEmailToken()"
+                  class="w-full rounded-2xl bg-blood-600 px-4 py-3 font-bold text-white">Verify Email</button>
+              </div>
+            </div>
+
+            <div class="rounded-3xl bg-white p-6 shadow-xl dark:bg-slate-900">
+              <h3 class="font-black">Mobile OTP</h3>
+              <div class="mt-3 space-y-3">
+                <button onclick="sendMobileOtp()" class="w-full rounded-2xl border px-4 py-3 font-bold">Send
+                  OTP</button>
+                <input id="mobile-otp" class="w-full rounded-2xl border px-4 py-3" placeholder="Enter OTP" />
+                <button onclick="verifyMobileOtp()"
+                  class="w-full rounded-2xl bg-blood-600 px-4 py-3 font-bold text-white">Verify Phone</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="page-profile" class="page">
+      <div class="mx-auto max-w-4xl px-4 py-10">
+        <div class="rounded-3xl bg-white p-6 shadow-xl dark:bg-slate-900 space-y-5">
+          <div class="profile-hero rounded-3xl p-6 text-white">
+            <div class="flex flex-col items-center gap-4 text-center md:flex-row md:text-left">
+              <img id="profile-avatar-preview" src="https://ui-avatars.com/api/?name=User&background=dc2626&color=fff"
+                class="h-24 w-24 rounded-full border-4 border-white/80 object-cover shadow-lg" alt="Avatar">
+              <div class="flex-1">
+                <h2 id="profile-full-name" class="text-3xl font-black">My Profile</h2>
+                <p class="mt-1 text-sm text-white/80">Keep your profile updated so requests and donor matching feel real
+                  and reliable.</p>
+                <div class="mt-3 flex flex-wrap justify-center gap-2 md:justify-start">
+                  <span id="profile-blood-badge" class="rounded-full bg-white/20 px-3 py-1 text-xs font-bold">Blood
+                    Group</span>
+                  <span id="profile-city-badge" class="rounded-full bg-white/20 px-3 py-1 text-xs font-bold">City</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="grid gap-4 md:grid-cols-2">
+            <div class="md:col-span-2">
+              <label class="mb-2 block text-sm font-semibold">Profile Photo URL</label>
+              <input id="profile-avatar" class="w-full rounded-2xl border px-4 py-3"
+                placeholder="Paste profile image URL" />
+            </div>
+            <input id="profile-fname" class="rounded-2xl border px-4 py-3" placeholder="First name" />
+            <input id="profile-lname" class="rounded-2xl border px-4 py-3" placeholder="Last name" />
+            <input id="profile-phone" class="rounded-2xl border px-4 py-3" placeholder="Phone" />
+            <select id="profile-state" class="select-field rounded-2xl border px-4 py-3"></select>
+            <select id="profile-city" class="select-field rounded-2xl border px-4 py-3"></select>
+          </div>
+          <textarea id="profile-address" class="w-full rounded-2xl border px-4 py-3" placeholder="Address"></textarea>
+          <textarea id="profile-bio" class="w-full rounded-2xl border px-4 py-3" placeholder="Bio"></textarea>
+          <div class="flex gap-3">
+            <button onclick="saveProfile()" class="rounded-2xl bg-blood-600 px-4 py-3 font-bold text-white">Save
+              Profile</button>
+            <button onclick="captureLocation(false, true)" class="rounded-2xl border px-4 py-3 font-bold">Update
+              Location</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="page-admin" class="page">
+      <div class="mx-auto max-w-7xl px-4 py-10 space-y-6">
+        <div class="grid gap-4 md:grid-cols-4">
+          <div class="rounded-3xl bg-white p-5 shadow-xl dark:bg-slate-900">
+            <div class="text-sm">Total Users</div>
+            <div id="admin-stat-1" class="text-4xl font-black">0</div>
+          </div>
+          <div class="rounded-3xl bg-white p-5 shadow-xl dark:bg-slate-900">
+            <div class="text-sm">Total Donors</div>
+            <div id="admin-stat-2" class="text-4xl font-black">0</div>
+          </div>
+          <div class="rounded-3xl bg-white p-5 shadow-xl dark:bg-slate-900">
+            <div class="text-sm">Pending Requests</div>
+            <div id="admin-stat-3" class="text-4xl font-black">0</div>
+          </div>
+          <div class="rounded-3xl bg-white p-5 shadow-xl dark:bg-slate-900">
+            <div class="text-sm">Total Units</div>
+            <div id="admin-stat-4" class="text-4xl font-black">0</div>
+          </div>
+        </div>
+
+        <div class="grid gap-6 lg:grid-cols-2">
+          <div class="rounded-3xl bg-white p-6 shadow-xl dark:bg-slate-900">
+            <h3 class="text-xl font-black">Blood Group Chart</h3><canvas id="blood-chart" class="mt-4"></canvas>
+          </div>
+          <div class="rounded-3xl bg-white p-6 shadow-xl dark:bg-slate-900">
+            <h3 class="text-xl font-black">Monthly Donations</h3><canvas id="donation-chart" class="mt-4"></canvas>
+          </div>
+        </div>
+
+        <div class="grid gap-6 xl:grid-cols-3">
+          <div class="rounded-3xl bg-white p-6 shadow-xl dark:bg-slate-900 xl:col-span-1">
+            <div class="flex items-center justify-between">
+              <h3 class="text-xl font-black">Add Inventory</h3>
+              <button onclick="cleanupExpiredInventory()" class="rounded-2xl border px-4 py-2 font-bold text-sm">Remove
+                expired</button>
+            </div>
+            <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">Choose a city first. Hospitals and phone numbers
+              will auto-fill from the directory.</p>
+            <div class="mt-4 space-y-3">
+              <select id="inv-blood" class="w-full rounded-2xl border px-4 py-3">
+                <option>A+</option>
+                <option>A-</option>
+                <option>B+</option>
+                <option>B-</option>
+                <option>AB+</option>
+                <option>AB-</option>
+                <option>O+</option>
+                <option>O-</option>
+              </select>
+              <input id="inv-units" type="number" class="w-full rounded-2xl border px-4 py-3" placeholder="Units" />
+              <select id="inv-city" class="w-full rounded-2xl border px-4 py-3">
+                <option value="">Select city</option>
+              </select>
+              <select id="inv-hospital" class="w-full rounded-2xl border px-4 py-3">
+                <option value="">Select hospital</option>
+              </select>
+              <input id="inv-phone" readonly class="w-full rounded-2xl border px-4 py-3"
+                placeholder="Hospital phone auto-filled" />
+              <select id="inv-urgency" class="w-full rounded-2xl border px-4 py-3">
+                <option value="normal">Normal</option>
+                <option value="urgent">Urgent</option>
+                <option value="emergency">Emergency</option>
+              </select>
+              <input id="inv-expiry" type="date" class="w-full rounded-2xl border px-4 py-3" />
+              <input id="inv-lat" type="number" step="any" class="w-full rounded-2xl border px-4 py-3"
+                placeholder="Latitude" />
+              <input id="inv-lng" type="number" step="any" class="w-full rounded-2xl border px-4 py-3"
+                placeholder="Longitude" />
+              <button onclick="saveInventory()"
+                class="w-full rounded-2xl bg-blood-600 px-4 py-3 font-bold text-white">Save Inventory</button>
+            </div>
+          </div>
+
+          <div class="rounded-3xl bg-white p-6 shadow-xl dark:bg-slate-900 xl:col-span-2">
+            <h3 class="text-xl font-black">Inventory Management</h3>
+            <div id="admin-inventory-list" class="mt-4 grid gap-4 md:grid-cols-2"></div>
+          </div>
+        </div>
+
+        <div class="grid gap-6 xl:grid-cols-3">
+          <div class="rounded-3xl bg-white p-6 shadow-xl dark:bg-slate-900 xl:col-span-2">
+            <h3 class="text-xl font-black">Requests</h3>
+            <div id="admin-requests-list" class="mt-4 space-y-4"></div>
+          </div>
+          <div class="rounded-3xl bg-white p-6 shadow-xl dark:bg-slate-900">
+            <h3 class="text-xl font-black">Users</h3>
+            <div id="admin-users-list" class="mt-4 space-y-4"></div>
+          </div>
+        </div>
+
+        <div class="rounded-3xl bg-white p-6 shadow-xl dark:bg-slate-900">
+          <h3 class="text-xl font-black">Contact Messages</h3>
+          <div id="admin-contact-list" class="mt-4 space-y-4"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="page-privacy" class="page legal-page">
+      <div class="mx-auto max-w-4xl px-4 py-10">
+        <div class="rounded-3xl bg-white p-8 shadow-xl dark:bg-slate-900">
+          <h2 class="text-3xl font-black">Privacy Policy</h2>
+          <p class="mt-4 text-slate-600 dark:text-slate-300">We store user accounts, blood inventory, requests,
+            notifications, and donation history only for blood donation workflow, admin review, and emergency
+            coordination. Sensitive authentication data is hashed. Demo email/SMS services remain configurable via
+            environment variables.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="page-terms" class="page legal-page">
+      <div class="mx-auto max-w-4xl px-4 py-10">
+        <div class="rounded-3xl bg-white p-8 shadow-xl dark:bg-slate-900">
+          <h2 class="text-3xl font-black">Terms of Service</h2>
+          <p class="mt-4 text-slate-600 dark:text-slate-300">This application is intended for education, workflow
+            simulation, and managed blood request coordination. Users must provide accurate blood group, city, and
+            contact details.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="page-cookies" class="page legal-page">
+      <div class="mx-auto max-w-4xl px-4 py-10">
+        <div class="rounded-3xl bg-white p-8 shadow-xl dark:bg-slate-900">
+          <h2 class="text-3xl font-black">Cookie Policy</h2>
+          <p class="mt-4 text-slate-600 dark:text-slate-300">The frontend stores auth session data locally in the
+            browser to keep users logged in and personalize dashboards.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="page-compliance" class="page legal-page">
+      <div class="mx-auto max-w-4xl px-4 py-10">
+        <div class="rounded-3xl bg-white p-8 shadow-xl dark:bg-slate-900">
+          <h2 class="text-3xl font-black">HIPAA Compliance</h2>
+          <p class="mt-4 text-slate-600 dark:text-slate-300">This project follows secure-by-default patterns for role
+            access, hashed passwords, and controlled data display. Full statutory compliance still depends on production
+            hosting, audit trails, and regulated deployment policies.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="page-contact" class="page">
+      <div class="mx-auto max-w-4xl px-4 py-10">
+        <div class="rounded-3xl bg-white p-8 shadow-xl dark:bg-slate-900">
+          <h2 class="text-3xl font-black">Contact</h2>
+          <div class="mt-4 grid gap-4 md:grid-cols-2">
+            <a href="mailto:support@bloodbank.com"
+              class="rounded-2xl border p-4 font-semibold">support@bloodbank.com</a>
+            <a href="tel:1800366283" class="rounded-2xl border p-4 font-semibold">1-800-DONATE</a>
+          </div>
+          <div class="mt-6 space-y-3">
+            <input id="contact-name" class="w-full rounded-2xl border px-4 py-3" placeholder="Your name" />
+            <div class="grid gap-3 md:grid-cols-2">
+              <input id="contact-email" class="w-full rounded-2xl border px-4 py-3" placeholder="Your email" />
+              <input id="contact-phone" class="w-full rounded-2xl border px-4 py-3" placeholder="Phone number" />
+            </div>
+            <input id="contact-subject" class="w-full rounded-2xl border px-4 py-3" placeholder="Subject" />
+            <textarea id="contact-message" class="w-full rounded-2xl border px-4 py-3"
+              placeholder="How can we help?"></textarea>
+            <button onclick="submitContact()" class="rounded-2xl bg-blood-600 px-4 py-3 font-bold text-white">Send
+              Message</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="border-t border-slate-800 bg-[#071129] text-white">
+    <div class="mx-auto max-w-7xl px-4 py-10">
+      <div class="grid gap-8 md:grid-cols-4">
+
+        <div>
+          <div class="text-2xl font-black">
+            Blood<span class="text-blood-600">Bank</span>
+          </div>
+          <p class="mt-3 max-w-xs text-sm leading-6 text-slate-300">
+            Find blood donors quickly
+          </p>
+        </div>
+
+        <div>
+          <div class="text-base font-black">Quick Links</div>
+          <div class="mt-3 space-y-2 text-sm text-slate-300">
+            <button onclick="showPage('home')" class="block hover:text-white transition-colors">Home</button>
+            <button onclick="showPage('search')" class="block hover:text-white transition-colors">Find Blood</button>
+            <button onclick="showPage('donor-dashboard')" class="block hover:text-white transition-colors">Donate
+              Blood</button>
+            <button onclick="showPage('admin')" class="block hover:text-white transition-colors">Admin Portal</button>
+          </div>
+        </div>
+
+        <div>
+          <div class="text-base font-black">Legal</div>
+          <div class="mt-3 space-y-2 text-sm text-slate-300">
+            <button onclick="showPage('privacy')" class="block hover:text-white transition-colors">Privacy
+              Policy</button>
+            <button onclick="showPage('terms')" class="block hover:text-white transition-colors">Terms of
+              Service</button>
+            <button onclick="showPage('cookies')" class="block hover:text-white transition-colors">Cookie
+              Policy</button>
+            <button onclick="showPage('compliance')" class="block hover:text-white transition-colors">HIPAA
+              Compliance</button>
+          </div>
+        </div>
+
+        <div>
+          <div class="text-base font-black">Contact</div>
+          <div class="mt-3 space-y-3 text-sm text-slate-300">
+            <a href="mailto:support@bloodbank.com" class="flex items-center gap-2 hover:text-white transition-colors">
+              <span>✉️</span>
+              <span>support@bloodbank.com</span>
+            </a>
+
+            <a href="tel:1800366283" class="flex items-center gap-2 hover:text-white transition-colors">
+              <span>📞</span>
+              <span>1-800-DONATE</span>
+            </a>
+          </div>
+
+          <div class="mt-4 flex gap-3">
+            <a href="https://twitter.com" target="_blank"
+              class="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-800 hover:bg-blood-600 transition-colors">𝕏</a>
+            <a href="https://facebook.com" target="_blank"
+              class="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-800 hover:bg-blood-600 transition-colors">f</a>
+            <a href="https://instagram.com" target="_blank"
+              class="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-800 hover:bg-blood-600 transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="5"></rect>
+                <circle cx="12" cy="12" r="4"></circle>
+                <circle cx="17.5" cy="6.5" r="1"></circle>
+              </svg>
+            </a>
+            <a href="https://linkedin.com" target="_blank"
+              class="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-800 hover:bg-blood-600 transition-colors">in</a>
+          </div>
+
+          <div class="mt-4">
+            <button onclick="showPage('contact')"
+              class="text-sm font-semibold text-blood-400 hover:text-blood-300 transition-colors">
+              Open contact form
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="border-t border-slate-800">
+      <div
+        class="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-4 text-center text-sm text-slate-400 md:flex-row md:items-center md:justify-between md:text-left">
+        <div>© 2026 BloodBank Application. All rights reserved.</div>
+        <div>Made with ❤️ for humanity.</div>
+      </div>
+    </div>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+
+</html>
